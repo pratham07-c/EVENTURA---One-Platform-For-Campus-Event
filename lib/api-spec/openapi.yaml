@@ -1,0 +1,251 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: EVENTURA campus events platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: identity
+    description: Authenticated user and profile operations
+  - name: dashboard
+    description: Role-aware dashboard summaries
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [identity]
+      summary: Get the signed-in user's profile
+      security:
+        - ClerkSessionCookie: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /profile:
+    patch:
+      operationId: updateMyProfile
+      tags: [identity]
+      summary: Update the signed-in user's editable profile fields
+      security:
+        - ClerkSessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid profile fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get a campus- and role-scoped dashboard summary
+      security:
+        - ClerkSessionCookie: []
+      responses:
+        "200":
+          description: Role-aware dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    ClerkSessionCookie:
+      type: apiKey
+      in: cookie
+      name: __session
+  schemas:
+    AppRole:
+      type: string
+      enum:
+        - COLLEGE_ADMIN
+        - CLUB
+        - ORGANIZER
+        - STUDENT
+        - VOLUNTEER
+    UserProfileInfo:
+      type: object
+      properties:
+        phone:
+          type: ["string", "null"]
+        department:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+      required: [phone, department, bio]
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/AppRole"
+        collegeName:
+          type: ["string", "null"]
+        profile:
+          $ref: "#/components/schemas/UserProfileInfo"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, email, role, collegeName, profile, createdAt, updatedAt]
+    ProfileUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        phone:
+          type: ["string", "null"]
+          maxLength: 40
+        department:
+          type: ["string", "null"]
+          maxLength: 120
+        bio:
+          type: ["string", "null"]
+          maxLength: 500
+    DashboardMetric:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        value:
+          type: integer
+        helper:
+          type: string
+        tone:
+          type: string
+          enum: [neutral, accent, success, warning]
+      required: [key, label, value, helper, tone]
+    DashboardEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        venue:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, APPROVED, PUBLISHED, COMPLETED, CANCELLED]
+      required: [id, title, category, startAt, venue, status]
+    DashboardActivity:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+      required: [id, title, detail, occurredAt]
+    DashboardSummary:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/AppRole"
+        collegeName:
+          type: ["string", "null"]
+        greeting:
+          type: string
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardMetric"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardEvent"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardActivity"
+      required: [role, collegeName, greeting, metrics, events, activity]
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
